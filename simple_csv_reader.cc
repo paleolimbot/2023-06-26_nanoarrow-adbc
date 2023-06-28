@@ -62,6 +62,11 @@ class SimpleCsvArrayBuilder {
   }
 
   int GetArray(ArrowArray* out) {
+    if (status_ == ScanResult::DONE) {
+      out->release = nullptr;
+      return NANOARROW_OK;
+    }
+
     NANOARROW_RETURN_NOT_OK(ReadSchemaIfNeeded());
     NANOARROW_RETURN_NOT_OK(InitArrayIfNeeded());
 
@@ -119,6 +124,11 @@ class SimpleCsvArrayBuilder {
     fields_.clear();
     status_ = scanner_.ReadLine(&fields_);
 
+    // Skip blank line
+    if (fields_.size() == 1 && fields_[0] == "") {
+      return NANOARROW_OK;
+    }
+
     if (schema_->n_children != fields_.size()) {
       ArrowErrorSet(&last_error_, "Expected %ld fields but found %ld fields",
                     (long)schema_->n_children, (long)fields_.size());
@@ -126,13 +136,13 @@ class SimpleCsvArrayBuilder {
     }
 
     ArrowStringView view;
-    for (int64_t i = 0; i < (schema_->n_children - 1); i++) {
+    for (int64_t i = 0; i < schema_->n_children; i++) {
       view.data = fields_[i].data();
       view.size_bytes = fields_[i].size();
-      NANOARROW_RETURN_NOT_OK(
-          ArrowArrayAppendString(array_->children[array_->n_children - 1], view));
+      NANOARROW_RETURN_NOT_OK(ArrowArrayAppendString(array_->children[i], view));
     }
 
+    NANOARROW_RETURN_NOT_OK(ArrowArrayFinishElement(array_.get()));
     return NANOARROW_OK;
   }
 };
