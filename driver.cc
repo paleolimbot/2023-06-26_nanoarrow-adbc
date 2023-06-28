@@ -3,7 +3,7 @@
 #include <string>
 
 #include "adbc.h"
-#include "nanoarrow.h"
+#include "simple_csv_reader.h"
 
 // A little bit of hack, but we really do need placeholders for the private
 // data for driver/database/connection/statement even though we don't use them.
@@ -27,7 +27,7 @@ struct SimpleCsvStatementPrivate {
 };
 
 static void ReleaseError(struct AdbcError* error) {
-  ArrowFree(error->message);
+  free(error->message);
   error->release = nullptr;
 }
 
@@ -150,6 +150,27 @@ static AdbcStatusCode SimpleCsvStatementRelease(struct AdbcStatement* statement,
   return ADBC_STATUS_OK;
 }
 
+static AdbcStatusCode SimpleCsvStatementSetSqlQuery(struct AdbcStatement* statement,
+                                                    const char* query,
+                                                    struct AdbcError* error) {
+  if (std::string(query) == "") {
+    return ADBC_STATUS_OK;
+  } else {
+    return ADBC_STATUS_NOT_IMPLEMENTED;
+  }
+}
+
+static AdbcStatusCode SimpleCsvStatementExecuteQuery(struct AdbcStatement* statement,
+                                                     struct ArrowArrayStream* out,
+                                                     int64_t* rows_affected,
+                                                     struct AdbcError* error) {
+  auto statement_private =
+      reinterpret_cast<SimpleCsvStatementPrivate*>(statement->private_data);
+  InitSimpleCsvArrayStream(statement_private->filename.c_str(), out);
+  *rows_affected = -1;
+  return ADBC_STATUS_OK;
+}
+
 static AdbcStatusCode SimpleCsvDriverInitFunc(int version, void* raw_driver,
                                               struct AdbcError* error) {
   if (version != ADBC_VERSION_1_0_0) return ADBC_STATUS_NOT_IMPLEMENTED;
@@ -167,6 +188,8 @@ static AdbcStatusCode SimpleCsvDriverInitFunc(int version, void* raw_driver,
   driver->ConnectionRelease = SimpleCsvConnectionRelease;
 
   driver->StatementNew = SimpleCsvStatementNew;
+  driver->StatementSetSqlQuery = SimpleCsvStatementSetSqlQuery;
+  driver->StatementExecuteQuery = SimpleCsvStatementExecuteQuery;
   driver->StatementRelease = SimpleCsvStatementRelease;
 
   driver->release = SimpleCsvDriverRelease;

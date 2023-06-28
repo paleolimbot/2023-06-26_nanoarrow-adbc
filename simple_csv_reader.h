@@ -7,8 +7,7 @@
 extern "C" {
 #endif
 
-void InitSimpleCsvArrayStream(const char* filename, int64_t filename_size,
-                              ArrowArrayStream* out);
+void InitSimpleCsvArrayStream(const char* filename, ArrowArrayStream* out);
 
 #ifdef __cplusplus
 }

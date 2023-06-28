@@ -157,11 +157,10 @@ static void SimpleCsvArrayStreamRelease(ArrowArrayStream* stream) {
   stream->release = nullptr;
 }
 
-void InitSimpleCsvArrayStream(const char* filename, int64_t filename_size,
-                              ArrowArrayStream* out) {
+void InitSimpleCsvArrayStream(const char* filename, ArrowArrayStream* out) {
   out->get_schema = &SimpleCsvArrayStreamGetSchema;
   out->get_next = &SimpleCsvArrayStreamGetNext;
   out->get_last_error = &SimpleCsvArrayStreamGetLastError;
   out->release = &SimpleCsvArrayStreamRelease;
-  out->private_data = new SimpleCsvArrayBuilder(std::string(filename, filename_size));
+  out->private_data = new SimpleCsvArrayBuilder(filename);
 }
