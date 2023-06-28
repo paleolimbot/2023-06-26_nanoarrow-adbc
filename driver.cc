@@ -150,7 +150,7 @@ static AdbcStatusCode SimpleCsvStatementExecuteQuery(struct AdbcStatement* state
   return ADBC_STATUS_OK;
 }
 
-static AdbcStatusCode SimpleCsvDriverInitFunc(int version, void* raw_driver,
+extern "C" AdbcStatusCode SimpleCsvDriverInit(int version, void* raw_driver,
                                               struct AdbcError* error) {
   if (version != ADBC_VERSION_1_0_0) return ADBC_STATUS_NOT_IMPLEMENTED;
   struct AdbcDriver* driver = (struct AdbcDriver*)raw_driver;

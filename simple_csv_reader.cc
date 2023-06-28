@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "nanoarrow.hpp"
+#include "simple_csv_reader.h"
 
 enum class ScanResult { UNINITIALIZED, FIELD_SEP, LINE_SEP, DONE };
 
