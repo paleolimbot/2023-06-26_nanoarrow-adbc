@@ -1,42 +1,51 @@
 
 #include <cerrno>
 #include <fstream>
+#include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "nanoarrow.hpp"
 
-enum class ScanResult { UNINITIALIZED, FIELD_SEP, LINE_SEP, DONE, ERROR };
+enum class ScanResult { UNINITIALIZED, FIELD_SEP, LINE_SEP, DONE };
 
 class SimpleCsvScanner {
  public:
   SimpleCsvScanner(const std::string& filename) : input_(filename, std::ios::binary) {}
 
-  ScanResult NextField(ArrowStringView* out) { return ScanResult::ERROR; }
+  std::pair<ScanResult, std::string> ReadField() {
+    std::stringstream stream;
+
+    while (true) {
+      int item = input_.get();
+      switch (item) {
+        case ',':
+          return {ScanResult::FIELD_SEP, stream.str()};
+        case '\n':
+          return {ScanResult::LINE_SEP, stream.str()};
+        case EOF:
+          return {ScanResult::DONE, stream.str()};
+        default:
+          stream << static_cast<char>(item);
+          break;
+      }
+    }
+  }
 
   ScanResult ReadLine(std::vector<std::string>* values) {
-    ArrowStringView view;
-    while ((status_ = NextField(&view)) == ScanResult::FIELD_SEP) {
-      values->push_back(std::string(view.data, view.size_bytes));
-    }
+    std::pair<ScanResult, std::string> result;
 
-    return status_;
+    do {
+      result = ReadField();
+      values->push_back(result.second);
+    } while (result.first == ScanResult::FIELD_SEP);
+
+    return result.first;
   }
 
  private:
   std::ifstream input_;
-  nanoarrow::UniqueBuffer buffer_;
-  ScanResult status_;
-
-  static int64_t find_char(const ArrowStringView& src, char value) {
-    for (int64_t i = 0; i < src.size_bytes; i++) {
-      if (src.data[i] == value) {
-        return i;
-      }
-    }
-
-    return src.size_bytes;
-  }
 };
 
 class SimpleCsvArrayBuilder {
@@ -45,13 +54,13 @@ class SimpleCsvArrayBuilder {
     ArrowErrorSet(&last_error_, "Internal error");
   }
 
-  int get_schema(ArrowSchema* out) {
+  int GetSchema(ArrowSchema* out) {
     NANOARROW_RETURN_NOT_OK(ReadSchemaIfNeeded());
     NANOARROW_RETURN_NOT_OK(ArrowSchemaDeepCopy(schema_.get(), out));
     return NANOARROW_OK;
   }
 
-  int get_array(ArrowArray* out) {
+  int GetArray(ArrowArray* out) {
     NANOARROW_RETURN_NOT_OK(ReadSchemaIfNeeded());
     NANOARROW_RETURN_NOT_OK(InitArrayIfNeeded());
 
@@ -64,9 +73,7 @@ class SimpleCsvArrayBuilder {
     return NANOARROW_OK;
   }
 
-  const char* get_last_error() {
-    return last_error_.message;
-  }
+  const char* GetLastError() { return last_error_.message; }
 
  private:
   ScanResult status_;
@@ -83,11 +90,6 @@ class SimpleCsvArrayBuilder {
 
     fields_.clear();
     status_ = scanner_.ReadLine(&fields_);
-
-    if (status_ == ScanResult::ERROR) {
-      ArrowErrorSet(&last_error_, "Scan error");
-      return EINVAL;
-    }
 
     ArrowSchemaInit(schema_.get());
     NANOARROW_RETURN_NOT_OK(ArrowSchemaSetTypeStruct(schema_.get(), fields_.size()));
@@ -116,14 +118,9 @@ class SimpleCsvArrayBuilder {
     fields_.clear();
     status_ = scanner_.ReadLine(&fields_);
 
-    if (status_ == ScanResult::ERROR) {
-      ArrowErrorSet(&last_error_, "Scan error");
-      return EINVAL;
-    }
-
     if (schema_->n_children != fields_.size()) {
       ArrowErrorSet(&last_error_, "Expected %ld fields but found %ld fields",
-                        (long)schema_->n_children, (long)fields_.size());
+                    (long)schema_->n_children, (long)fields_.size());
       return EINVAL;
     }
 
@@ -132,9 +129,39 @@ class SimpleCsvArrayBuilder {
       view.data = fields_[i].data();
       view.size_bytes = fields_[i].size();
       NANOARROW_RETURN_NOT_OK(
-            ArrowArrayAppendString(array_->children[array_->n_children - 1], view));
+          ArrowArrayAppendString(array_->children[array_->n_children - 1], view));
     }
 
     return NANOARROW_OK;
   }
 };
+
+static int SimpleCsvArrayStreamGetSchema(ArrowArrayStream* stream, ArrowSchema* out) {
+  auto private_data = reinterpret_cast<SimpleCsvArrayBuilder*>(stream->private_data);
+  return private_data->GetSchema(out);
+}
+
+static int SimpleCsvArrayStreamGetNext(ArrowArrayStream* stream, ArrowArray* out) {
+  auto private_data = reinterpret_cast<SimpleCsvArrayBuilder*>(stream->private_data);
+  return private_data->GetArray(out);
+}
+
+static const char* SimpleCsvArrayStreamGetLastError(ArrowArrayStream* stream) {
+  auto private_data = reinterpret_cast<SimpleCsvArrayBuilder*>(stream->private_data);
+  return private_data->GetLastError();
+}
+
+static void SimpleCsvArrayStreamRelease(ArrowArrayStream* stream) {
+  auto private_data = reinterpret_cast<SimpleCsvArrayBuilder*>(stream->private_data);
+  delete private_data;
+  stream->release = nullptr;
+}
+
+void InitSimpleCsvArrayStream(const char* filename, int64_t filename_size,
+                              ArrowArrayStream* out) {
+  out->get_schema = &SimpleCsvArrayStreamGetSchema;
+  out->get_next = &SimpleCsvArrayStreamGetNext;
+  out->get_last_error = &SimpleCsvArrayStreamGetLastError;
+  out->release = &SimpleCsvArrayStreamRelease;
+  out->private_data = new SimpleCsvArrayBuilder(std::string(filename, filename_size));
+}
