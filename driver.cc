@@ -26,27 +26,6 @@ struct SimpleCsvStatementPrivate {
   std::string filename;
 };
 
-static void ReleaseError(struct AdbcError* error) {
-  free(error->message);
-  error->release = nullptr;
-}
-
-static void SetErrorConst(struct AdbcError* error, const char* value) {
-  if (error == nullptr) {
-    return;
-  }
-
-  memset(error, 0, sizeof(struct AdbcError));
-  int64_t value_size = strlen(value);
-  error->message = (char*)malloc(value_size + 1);
-  if (error->message == nullptr) {
-    return;
-  }
-
-  memcpy(error->message, value, value_size);
-  error->release = &ReleaseError;
-}
-
 static AdbcStatusCode SimpleCsvDriverRelease(struct AdbcDriver* driver,
                                              struct AdbcError* error) {
   if (driver->private_data == nullptr) {
