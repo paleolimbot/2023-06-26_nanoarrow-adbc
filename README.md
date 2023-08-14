@@ -22,7 +22,7 @@ cmake --build .
 
 This will build a shared library called `libadbc_simple_csv_driver`. The
 extension will vary based on platform (.dylib on MacOS, .so on Linux,
-and .dll on Winodws).
+and .dll on Windows).
 
 ```
 build
