@@ -6,6 +6,6 @@ simple_csv_drv <- adbc_driver(
   "SimpleCsvDriverInit"
 )
 
-adbc_database_init(simple_csv_drv, uri = "test.csv") |>
-  read_adbc("") |>
+adbc_database_init(simple_csv_drv) |>
+  read_adbc("test.csv") |>
   as.data.frame()
