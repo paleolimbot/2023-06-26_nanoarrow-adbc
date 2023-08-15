@@ -50,12 +50,12 @@ import pyarrow as pa
 
 db = adbc_driver_manager.AdbcDatabase(
     driver="build/libadbc_simple_csv_driver.dylib",
-    entrypoint="SimpleCsvDriverInit",
-    uri="test.csv"
+    entrypoint="SimpleCsvDriverInit"
 )
 
 conn = adbc_driver_manager.AdbcConnection(db)
 stmt = adbc_driver_manager.AdbcStatement(conn)
+stmt.set_sql_query("test.csv")
 array_stream, rows_affected = stmt.execute_query()
 reader = pa.RecordBatchReader._import_from_c(array_stream.address)
 reader.read_all()
@@ -80,8 +80,8 @@ simple_csv_drv <- adbc_driver(
   "SimpleCsvDriverInit"
 )
 
-adbc_database_init(simple_csv_drv, uri = "test.csv") |>
-  read_adbc("") |>
+adbc_database_init(simple_csv_drv) |>
+  read_adbc("test.csv") |>
   as.data.frame()
 #>   col1 col2 col3
 #> 1 val1 val2 val3
