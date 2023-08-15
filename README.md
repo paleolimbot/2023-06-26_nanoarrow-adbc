@@ -5,9 +5,9 @@ This repository contains a bare-bones ADBC driver implemented in C++ using
 [nanoarrow](https://arrow.apache.org/nanoarrow) to generate the required
 [Arrow C Data](https://arrow.apache.org/docs/format/CDataInterface.html) and
 [Arrow C Stream](https://arrow.apache.org/docs/format/CStreamInterface.html)
-structures. The CSV reading portion of the driver is intentionally minimal:
-this example is designed to illustrate the glue code required to expose
-a data source as an ADBC driver rather than implement a CSV reader.
+structures. Note that this example is designed to illustrate the glue code
+required to expose a data source as an ADBC driver rather than implement a
+fully-featured driver or CSV reader.
 
 ## Building
 
