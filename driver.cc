@@ -15,11 +15,11 @@ struct SimpleCsvDriverPrivate {
 };
 
 struct SimpleCsvDatabasePrivate {
-  std::string filename;
+  int not_empty;
 };
 
 struct SimpleCsvConnectionPrivate {
-  std::string filename;
+  int not_empty;
 };
 
 struct SimpleCsvStatementPrivate {
@@ -47,14 +47,7 @@ static AdbcStatusCode SimpleCsvDatabaseNew(struct AdbcDatabase* database,
 static AdbcStatusCode SimpleCsvDatabaseSetOption(struct AdbcDatabase* database,
                                                  const char* key, const char* value,
                                                  struct AdbcError* error) {
-  if (std::string(key) == "uri") {
-    auto database_private =
-        reinterpret_cast<SimpleCsvDatabasePrivate*>(database->private_data);
-    database_private->filename = value;
-    return ADBC_STATUS_OK;
-  } else {
-    return ADBC_STATUS_INVALID_ARGUMENT;
-  }
+  return ADBC_STATUS_INVALID_ARGUMENT;
 }
 
 static AdbcStatusCode SimpleCsvDatabaseInit(struct AdbcDatabase* database,
@@ -88,7 +81,6 @@ static AdbcStatusCode SimpleCsvConnectionInit(struct AdbcConnection* connection,
       reinterpret_cast<SimpleCsvConnectionPrivate*>(connection->private_data);
   auto database_private =
       reinterpret_cast<SimpleCsvDatabasePrivate*>(database->private_data);
-  connection_private->filename = database_private->filename;
   return ADBC_STATUS_OK;
 }
 
@@ -111,7 +103,6 @@ static AdbcStatusCode SimpleCsvStatementNew(struct AdbcConnection* connection,
   auto statement_private = new SimpleCsvStatementPrivate();
   auto connection_private =
       reinterpret_cast<SimpleCsvConnectionPrivate*>(connection->private_data);
-  statement_private->filename = connection_private->filename;
   statement->private_data = statement_private;
   return ADBC_STATUS_OK;
 }
@@ -132,11 +123,10 @@ static AdbcStatusCode SimpleCsvStatementRelease(struct AdbcStatement* statement,
 static AdbcStatusCode SimpleCsvStatementSetSqlQuery(struct AdbcStatement* statement,
                                                     const char* query,
                                                     struct AdbcError* error) {
-  if (std::string(query) == "") {
-    return ADBC_STATUS_OK;
-  } else {
-    return ADBC_STATUS_NOT_IMPLEMENTED;
-  }
+  auto statement_private =
+      reinterpret_cast<SimpleCsvStatementPrivate*>(statement->private_data);
+  statement_private->filename = query;
+  return ADBC_STATUS_OK;
 }
 
 static AdbcStatusCode SimpleCsvStatementExecuteQuery(struct AdbcStatement* statement,
