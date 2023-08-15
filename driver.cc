@@ -1,5 +1,6 @@
 
-#include <stdlib.h>
+#include <cstdlib>
+#include <cstring>
 #include <string>
 
 #include "adbc.h"
